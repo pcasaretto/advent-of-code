@@ -1,4 +1,4 @@
-module github.com/pcasaretto/advent-of-code
+module github.com/pcasaretto/advent-of-code/2023/01
 
 go 1.20
 
