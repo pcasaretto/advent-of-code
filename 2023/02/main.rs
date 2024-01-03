@@ -6,8 +6,11 @@ fn main() {
     io::stdin().read_to_string(&mut input).unwrap();
 
     let games = parse_input(&input);
-    let possible_games_sum = sum_possible_games(&games, 12, 13, 14);
-    println!("{}", possible_games_sum);
+    // let possible_games_sum = sum_possible_games(&games, 12, 13, 14);
+    // println!("{}", possible_games_sum);
+
+    let power_sum = sum_powers_of_minimum_sets(&games);
+    println!("{}", power_sum);
 }
 
 fn parse_input(input: &str) -> HashMap<i32, Vec<HashMap<String, i32>>> {
@@ -56,4 +59,22 @@ fn is_game_possible(draws: &Vec<HashMap<String, i32>>, red: i32, green: i32, blu
         }
     }
     true
+}
+
+fn sum_powers_of_minimum_sets(games: &HashMap<i32, Vec<HashMap<String, i32>>>) -> i32 {
+    games.iter().map(|(_, draws)| power_of_minimum_set(draws)).sum()
+}
+
+fn power_of_minimum_set(draws: &Vec<HashMap<String, i32>>) -> i32 {
+    let mut min_red = 0;
+    let mut min_green = 0;
+    let mut min_blue = 0;
+
+    for draw in draws {
+        min_red = min_red.max(*draw.get("red").unwrap_or(&0));
+        min_green = min_green.max(*draw.get("green").unwrap_or(&0));
+        min_blue = min_blue.max(*draw.get("blue").unwrap_or(&0));
+    }
+
+    min_red * min_green * min_blue
 }
