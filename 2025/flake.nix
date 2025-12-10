@@ -18,6 +18,7 @@
             clojure-lsp
             babashka
             rlwrap
+            z3
           ];
 
           shellHook = ''
