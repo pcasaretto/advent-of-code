@@ -65,14 +65,14 @@ Since children come first in topo order, their counts are already in `counts` wh
 
 ### Step 3: Part 2 - Constrained Path Counting
 
-Now we track state: which required nodes (`dac`, `fft`) have been visited.
+Now we track state: which required nodes (`dac`, `fft`) have been visited, using sets.
 
 ```
-State bits:
-  0 = seen neither
-  1 = seen dac
-  2 = seen fft
-  3 = seen both
+Possible states:
+  #{}           - seen neither
+  #{"dac"}      - seen dac only
+  #{"fft"}      - seen fft only
+  #{"dac" "fft"} - seen both
 ```
 
 **Key insight**: `counts[(node, s)]` = paths from `node` to `out`, entering with state `s`.
@@ -80,24 +80,23 @@ State bits:
 ```clojure
 (reduce
   (fn [counts node]
-    (let [node-bit (get req-to-bit node 0)]  ; 0 if not required
-      (reduce
-        (fn [counts in-state]
-          (let [out-state (bit-or in-state node-bit)  ; update state
-                k [node in-state]                      ; key = entering state
-                v (if (= node "out")
-                    (if (= out-state all-bits) 1 0)   ; count if all visited
-                    (reduce + 0 (map #(get counts [% out-state] 0)
-                                     (get graph node []))))]
-            (assoc counts k v)))
-        counts
-        (range n-states))))  ; try all 4 possible entering states
+    (reduce
+      (fn [counts in-state]
+        (let [out-state (if (required-set node) (conj in-state node) in-state)
+              k [node in-state]
+              v (if (= node "out")
+                  (if (= out-state required-set) 1 0)
+                  (reduce + 0 (map #(get counts [% out-state] 0)
+                                   (get graph node []))))]
+          (assoc counts k v)))
+      counts
+      all-states))  ; try all 4 possible entering states
   {}
   order)
 ```
 
 For each node, for each possible entering state:
-1. Compute exiting state: `out-state = in-state | node-bit`
+1. Compute exiting state: `out-state = (conj in-state node)` if node is required
 2. At `"out"`: return 1 if we've seen all required nodes
 3. Otherwise: sum children's counts, passing them `out-state`
 
@@ -110,7 +109,7 @@ For each node, for each possible entering state:
 ### Final Query
 
 ```clojure
-(get counts ["svr" 0] 0)  ; start at svr with no bits set
+(get counts ["svr" #{}] 0)  ; start at svr with empty visited set
 ```
 
 ## Complexity
@@ -131,5 +130,5 @@ Note: There are 155 quadrillion total paths from svr to out, but memoization/DP 
 
 1. **Purely functional recursion**: Thread accumulators through recursive calls instead of using mutable state
 2. **Bottom-up DP**: Process in topological order so dependencies are computed first
-3. **State tracking with bitmasks**: Efficient way to track which subset of nodes have been visited
+3. **State tracking with sets**: Clear, self-documenting way to track which required nodes have been visited
 4. **Key semantics matter**: In bottom-up DP, carefully consider whether keys represent entering or exiting state

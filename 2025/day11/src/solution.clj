@@ -42,35 +42,41 @@
         counts (count-paths graph "you")]
     (get counts "you" 0)))
 
+(defn subsets
+  "Generate all subsets of a set"
+  [s]
+  (if (empty? s)
+    [#{}]
+    (let [elem (first s)
+          rest-subsets (subsets (disj s elem))]
+      (concat rest-subsets (map #(conj % elem) rest-subsets)))))
+
 (defn count-paths-through
   "Count paths from start to 'out' that visit all required nodes"
   [graph required start]
-  (let [req-to-bit (into {} (map-indexed (fn [i n] [n (bit-shift-left 1 i)]) required))
-        all-bits (dec (bit-shift-left 1 (count required)))
-        n-states (bit-shift-left 1 (count required))
+  (let [required-set (set required)
+        all-states (subsets required-set)
         order (topo-sort graph start)]
     (reduce
       (fn [counts node]
-        (let [node-bit (get req-to-bit node 0)]
-          (reduce
-            (fn [counts in-state]
-              (let [out-state (bit-or in-state node-bit)
-                    k [node in-state]  ; key is (node, ENTERING state)
-                    v (if (= node "out")
-                        (if (= out-state all-bits) 1 0)
-                        ;; children receive out-state (state after this node)
-                        (reduce + 0 (map #(get counts [% out-state] 0)
-                                         (get graph node []))))]
-                (assoc counts k v)))
-            counts
-            (range n-states))))
+        (reduce
+          (fn [counts in-state]
+            (let [out-state (if (required-set node) (conj in-state node) in-state)
+                  k [node in-state]
+                  v (if (= node "out")
+                      (if (= out-state required-set) 1 0)
+                      (reduce + 0 (map #(get counts [% out-state] 0)
+                                       (get graph node []))))]
+              (assoc counts k v)))
+          counts
+          all-states))
       {}
       order)))
 
 (defn solve-part2 [input]
   (let [graph (parse-input input)
         counts (count-paths-through graph ["dac" "fft"] "svr")]
-    (get counts ["svr" 0] 0)))
+    (get counts ["svr" #{}] 0)))
 
 (defmacro timed [expr]
   `(let [start# (System/nanoTime)
