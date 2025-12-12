@@ -11,72 +11,31 @@
        (map parse-line)
        (into {})))
 
-(defn topo-sort
-  "Topological sort via DFS post-order (purely functional)"
-  [graph start]
-  (letfn [(visit [node visited result]
-            (if (visited node)
-              [visited result]
-              (let [[visited result]
-                    (reduce (fn [[visited result] child]
-                              (visit child visited result))
-                            [(conj visited node) result]
-                            (get graph node []))]
-                [visited (conj result node)])))]
-    (second (visit start #{} []))))
-
-(defn count-paths
-  "Count paths using bottom-up DP on topologically sorted nodes"
-  [graph start]
-  (let [order (topo-sort graph start)]
-    (reduce (fn [counts node]
-              (assoc counts node
-                     (if (= node "out")
-                       1
-                       (reduce + 0 (map #(get counts % 0) (get graph node []))))))
-            {}
-            order)))
+;; Part 1: Simple path counting
+(def count-paths-memo
+  (memoize
+    (fn [graph node]
+      (if (= node "out")
+        1
+        (reduce + 0 (map #(count-paths-memo graph %) (get graph node [])))))))
 
 (defn solve-part1 [input]
-  (let [graph (parse-input input)
-        counts (count-paths graph "you")]
-    (get counts "you" 0)))
+  (let [graph (parse-input input)]
+    (count-paths-memo graph "you")))
 
-(defn subsets
-  "Generate all subsets of a set"
-  [s]
-  (if (empty? s)
-    [#{}]
-    (let [elem (first s)
-          rest-subsets (subsets (disj s elem))]
-      (concat rest-subsets (map #(conj % elem) rest-subsets)))))
-
-(defn count-paths-through
-  "Count paths from start to 'out' that visit all required nodes"
-  [graph required start]
-  (let [required-set (set required)
-        all-states (subsets required-set)
-        order (topo-sort graph start)]
-    (reduce
-      (fn [counts node]
-        (reduce
-          (fn [counts in-state]
-            (let [out-state (if (required-set node) (conj in-state node) in-state)
-                  k [node in-state]
-                  v (if (= node "out")
-                      (if (= out-state required-set) 1 0)
-                      (reduce + 0 (map #(get counts [% out-state] 0)
-                                       (get graph node []))))]
-              (assoc counts k v)))
-          counts
-          all-states))
-      {}
-      order)))
+;; Part 2: Path counting with required nodes
+(def count-paths-through-memo
+  (memoize
+    (fn [graph required node visited]
+      (let [visited (if (required node) (conj visited node) visited)]
+        (if (= node "out")
+          (if (= visited required) 1 0)
+          (reduce + 0 (map #(count-paths-through-memo graph required % visited)
+                           (get graph node []))))))))
 
 (defn solve-part2 [input]
-  (let [graph (parse-input input)
-        counts (count-paths-through graph ["dac" "fft"] "svr")]
-    (get counts ["svr" #{}] 0)))
+  (let [graph (parse-input input)]
+    (count-paths-through-memo graph #{"dac" "fft"} "svr" #{})))
 
 (defmacro timed [expr]
   `(let [start# (System/nanoTime)
